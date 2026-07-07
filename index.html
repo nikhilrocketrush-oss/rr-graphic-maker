@@ -603,6 +603,83 @@ document.getElementById('aspectSelect').addEventListener('change', e=>{
   updateStageSize();
 });
 
+function computeCoverRect(natW, natH, destW, destH, zoom, panXVal, panYVal){
+  const baseScale = Math.min(destW/natW, destH/natH);
+  const baseW = natW*baseScale, baseH = natH*baseScale;
+  const scaledW = baseW*zoom, scaledH = baseH*zoom;
+  const baseX = (destW-scaledW)/2, baseY = (destH-scaledH)/2;
+  const finalX = baseX + (panXVal/100)*destW;
+  const finalY = baseY + (panYVal/100)*destH;
+  return {x:finalX, y:finalY, w:scaledW, h:scaledH};
+}
+
+function bakeAdjustableImage(imgEl, zoomId, xId, yId, destW, destH){
+  if(!imgEl.src || imgEl.style.display === 'none') return null;
+  const natW = imgEl.naturalWidth, natH = imgEl.naturalHeight;
+  if(!natW || !natH) return null;
+  const zoom = parseFloat(document.getElementById(zoomId).value);
+  const panX = parseFloat(document.getElementById(xId).value);
+  const panY = parseFloat(document.getElementById(yId).value);
+  const rect = computeCoverRect(natW, natH, destW, destH, zoom, panX, panY);
+  const canvas = document.createElement('canvas');
+  canvas.width = destW; canvas.height = destH;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imgEl, 0,0,natW,natH, rect.x, rect.y, rect.w, rect.h);
+  return canvas.toDataURL('image/png');
+}
+
+function bakeSubjectImage(imgEl, wId, yId, destW, destH){
+  if(!imgEl.src || imgEl.style.display === 'none') return null;
+  const natW = imgEl.naturalWidth, natH = imgEl.naturalHeight;
+  if(!natW || !natH) return null;
+  const wPct = parseFloat(document.getElementById(wId).value);
+  const yPct = parseFloat(document.getElementById(yId).value);
+  const w = (wPct/100) * destW;
+  const h = w * (natH/natW);
+  const x = (destW - w)/2;
+  const baseY = destH - h;
+  const y = baseY + (yPct/100)*h;
+  const canvas = document.createElement('canvas');
+  canvas.width = destW; canvas.height = destH;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imgEl, 0,0,natW,natH, x, y, w, h);
+  return canvas.toDataURL('image/png');
+}
+
+async function bakeAllForExport(destW, destH){
+  const jobs = [
+    {imgId:'t1_bg', kind:'cover', zoomId:'t1_zoom', xId:'t1_panx', yId:'t1_pany'},
+    {imgId:'t3_bgphoto', kind:'cover', zoomId:'t3_bgZoom', xId:'t3_bgPanX', yId:'t3_bgPanY'},
+    {imgId:'t4_bg', kind:'cover', zoomId:'t4_zoom', xId:'t4_panx', yId:'t4_pany'},
+    {imgId:'t3_subject', kind:'subject', wId:'t3_subjW', yId:'t3_subjY'},
+  ];
+  const restoreList = [];
+  for(const job of jobs){
+    const img = document.getElementById(job.imgId);
+    if(!img || !img.src || img.style.display === 'none') continue;
+    let baked;
+    if(job.kind === 'cover'){
+      baked = bakeAdjustableImage(img, job.zoomId, job.xId, job.yId, destW, destH);
+    } else {
+      baked = bakeSubjectImage(img, job.wId, job.yId, destW, destH);
+    }
+    if(baked){
+      restoreList.push({img, originalSrc: img.src, originalTransform: img.style.transform});
+      img.src = baked;
+      img.style.transform = 'none';
+      try{ await img.decode(); } catch(e){ /* proceed anyway */ }
+    }
+  }
+  return restoreList;
+}
+
+function restoreAfterExport(restoreList){
+  restoreList.forEach(r=>{
+    r.img.src = r.originalSrc;
+    r.img.style.transform = r.originalTransform;
+  });
+}
+
 document.getElementById('downloadBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('downloadBtn');
   btn.disabled = true;
@@ -616,7 +693,9 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
 
   await new Promise(r=> setTimeout(r, 60));
 
+  let restoreList = [];
   try{
+    restoreList = await bakeAllForExport(aspect.w, aspect.h);
     const canvas = await html2canvas(designDiv, {backgroundColor:'#111', scale:1, useCORS:true});
     canvas.toBlob(blob=>{
       const url = URL.createObjectURL(blob);
@@ -631,6 +710,7 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
     alert('Render failed: ' + err.message);
   }
 
+  restoreAfterExport(restoreList);
   canvasShell.style.width = shellW;
   canvasShell.style.height = shellH;
   updateUnits();
