@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RocketRush Graphic Maker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&family=Montserrat:wght@700;800;900&family=Inter:wght@700;800;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
@@ -23,7 +23,7 @@
   .stage{ flex:1 1 420px; display:flex; align-items:flex-start; justify-content:center; padding:32px 20px; min-width:320px; }
   .canvas-shell{ position:relative; background:#111; border-radius:10px; overflow:hidden; box-shadow:0 12px 32px rgba(0,0,0,0.18); }
 
-  #designDiv{ position:relative; width:100%; height:100%; container-type:size; overflow:hidden; background:#1a1a1a; }
+  #designDiv{ position:relative; width:100%; height:100%; overflow:hidden; background:#1a1a1a; }
   .tpl-block{ position:absolute; inset:0; }
 
   .photo-frame{ position:absolute; inset:0; overflow:hidden; background:#2b2b2b; }
@@ -31,21 +31,21 @@
     position:absolute; top:50%; left:50%; width:100%; height:100%; object-fit:contain; display:none;
     transform: translate(-50%,-50%) scale(var(--z,1)) translate(var(--px,0%), var(--py,0%));
   }
-  .no-image-hint{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.3); font-family:'JetBrains Mono',monospace; font-size:3.2cqmin; text-align:center; padding:8cqmin; z-index:1; }
+  .no-image-hint{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.3); font-family:'JetBrains Mono',monospace; font-size:calc(3.2 * var(--u)); text-align:center; padding:calc(8 * var(--u)); z-index:1; }
   .gradient-overlay{ position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,0) 38%, rgba(0,0,0,0.55) 68%, rgba(0,0,0,0.9) 100%); pointer-events:none; z-index:2; }
 
-  .logo-badge{ position:absolute; top:5cqmin; padding:1.6cqmin 2.6cqmin; border-radius:1.4cqmin; display:flex; align-items:center; box-shadow:0 0.3cqmin 1cqmin rgba(0,0,0,0.25); z-index:3; }
-  .logo-badge.right{ right:5cqmin; } .logo-badge.left{ left:5cqmin; }
-  .logo-badge img{ height:5.2cqmin; width:auto; display:block; }
+  .logo-badge{ position:absolute; top:calc(5 * var(--u)); padding:calc(1.6 * var(--u)) calc(2.6 * var(--u)); border-radius:calc(1.4 * var(--u)); display:flex; align-items:center; box-shadow:0 calc(0.3 * var(--u)) calc(1 * var(--u)) rgba(0,0,0,0.25); z-index:3; }
+  .logo-badge.right{ right:calc(5 * var(--u)); } .logo-badge.left{ left:calc(5 * var(--u)); }
+  .logo-badge img{ height:calc(5.2 * var(--u)); width:auto; display:block; }
 
-  .headline{ position:absolute; left:6.5cqmin; right:6.5cqmin; bottom:9cqmin; font-family:'Poppins',sans-serif; font-weight:800; color:#fff; line-height:1.18; letter-spacing:-0.01em; z-index:3; }
-  .headline .hl{ background:var(--hlcolor,#D6281F); color:#fff; padding:0.3cqmin 1.4cqmin; -webkit-box-decoration-break:clone; box-decoration-break:clone; border-radius:0.7cqmin; }
+  .headline{ position:absolute; left:calc(6.5 * var(--u)); right:calc(6.5 * var(--u)); bottom:calc(9 * var(--u)); font-family:'Poppins',sans-serif; font-weight:800; color:#fff; line-height:1.18; letter-spacing:-0.01em; z-index:3; }
+  .headline .hl{ background:var(--hlcolor,#D6281F); color:#fff; padding:calc(0.3 * var(--u)) calc(1.4 * var(--u)); -webkit-box-decoration-break:clone; box-decoration-break:clone; border-radius:calc(0.7 * var(--u)); }
 
   /* Template 3: cutout + background */
   .t3-subject-img{ position:absolute; bottom:0; left:50%; width:var(--subjW,70%); transform:translateX(-50%) translateY(var(--subjY,0%)); z-index:1; display:none; }
 
   /* Template 4: photo + screenshot only */
-  .t4-shot-card{ position:absolute; left:6cqmin; width:var(--t4w,85%); top:var(--t4y,62%); background:#fff; border-radius:1.6cqmin; overflow:hidden; box-shadow:0 1cqmin 3cqmin rgba(0,0,0,0.35); z-index:2; display:none; }
+  .t4-shot-card{ position:absolute; left:calc(6 * var(--u)); width:var(--t4w,85%); top:var(--t4y,62%); background:#fff; border-radius:calc(1.6 * var(--u)); overflow:hidden; box-shadow:0 calc(1 * var(--u)) calc(3 * var(--u)) rgba(0,0,0,0.35); z-index:2; display:none; }
   .t4-shot-img{ width:100%; display:block; }
 
   .controls{ flex:0 0 380px; padding:28px 24px 60px; border-left:1px solid var(--line); background:#fbfaf7; }
@@ -161,6 +161,14 @@ in America before anyone
 knew their name</textarea>
         <div class="hint">Wrap text in ** ** for the red highlight box. Enter = manual line break.</div>
       </div>
+      <div class="field">
+        <label>Font</label>
+        <select id="t1_fontFamily">
+          <option value="Poppins">Poppins (default)</option>
+          <option value="Montserrat">Montserrat</option>
+          <option value="Inter">Inter</option>
+        </select>
+      </div>
       <div class="row">
         <div class="field"><label>Highlight color</label><input type="color" id="t1_hlColor" value="#D6281F"></div>
         <div class="field"><label>Headline size</label><input type="range" id="t1_fontSize" min="5" max="10" step="0.2" value="7.2"></div>
@@ -210,6 +218,14 @@ knew their name</textarea>
 Indian cafés for ₹400–₹1,000,
 while **haldi ka doodh costs** barely
 ₹20 to make.</textarea>
+      </div>
+      <div class="field">
+        <label>Font</label>
+        <select id="t3_fontFamily">
+          <option value="Poppins">Poppins (default)</option>
+          <option value="Montserrat">Montserrat</option>
+          <option value="Inter">Inter</option>
+        </select>
       </div>
       <div class="row">
         <div class="field"><label>Highlight color</label><input type="color" id="t3_hlColor" value="#D6281F"></div>
@@ -273,12 +289,20 @@ let currentTemplate = 1;
 
 function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+function updateUnits(){
+  const w = canvasShell.getBoundingClientRect().width || parseFloat(canvasShell.style.width) || 1;
+  const h = canvasShell.getBoundingClientRect().height || parseFloat(canvasShell.style.height) || 1;
+  const u = Math.min(w,h) / 100;
+  designDiv.style.setProperty('--u', u + 'px');
+}
+
 function updateStageSize(){
   const maxPreviewW = Math.min(380, window.innerWidth - 60);
   const w = maxPreviewW;
   const h = w * (aspect.h/aspect.w);
   canvasShell.style.width = w+'px';
   canvasShell.style.height = h+'px';
+  updateUnits();
 }
 
 function selectTemplate(n){
@@ -319,13 +343,17 @@ function bindFileToImg(inputId, imgId, onLoaded){
   });
 }
 
-function renderHeadline(taId, targetId, sizeId, colorId){
+function renderHeadline(taId, targetId, sizeId, colorId, fontId){
   const raw = document.getElementById(taId).value;
   const size = document.getElementById(sizeId).value;
   const hlColor = document.getElementById(colorId).value;
   const target = document.getElementById(targetId);
-  target.style.fontSize = size + 'cqmin';
+  target.style.fontSize = 'calc(' + size + ' * var(--u))';
   target.style.setProperty('--hlcolor', hlColor);
+  if(fontId){
+    const family = document.getElementById(fontId).value;
+    target.style.fontFamily = "'" + family + "', sans-serif";
+  }
   const lines = raw.split('\n');
   target.innerHTML = lines.map(line=>{
     const parts = line.split('**');
@@ -333,16 +361,17 @@ function renderHeadline(taId, targetId, sizeId, colorId){
   }).join('<br>');
 }
 
-function bindHeadline(taId, targetId, sizeId, colorId){
-  const fn = ()=> renderHeadline(taId, targetId, sizeId, colorId);
+function bindHeadline(taId, targetId, sizeId, colorId, fontId){
+  const fn = ()=> renderHeadline(taId, targetId, sizeId, colorId, fontId);
   [taId, sizeId, colorId].forEach(id=> document.getElementById(id).addEventListener('input', fn));
+  if(fontId) document.getElementById(fontId).addEventListener('change', fn);
   fn();
 }
 
 /* ---------- Template 1 ---------- */
 bindAdjust('t1_bg','t1_zoom','t1_panx','t1_pany');
 bindFileToImg('t1_bgInput','t1_bg', ()=>{ document.getElementById('t1_hint').style.display='none'; });
-bindHeadline('t1_headlineInput','t1_headline','t1_fontSize','t1_hlColor');
+bindHeadline('t1_headlineInput','t1_headline','t1_fontSize','t1_hlColor','t1_fontFamily');
 
 document.getElementById('t1_logoToggle').addEventListener('change', e=>{
   const on = e.target.checked;
@@ -363,7 +392,7 @@ document.getElementById('t1_badgeColor').addEventListener('input', e=>{
 /* ---------- Template 3 ---------- */
 bindAdjust('t3_bgphoto','t3_bgZoom','t3_bgPanX','t3_bgPanY');
 bindFileToImg('t3_bgInput','t3_bgphoto');
-bindHeadline('t3_headlineInput','t3_headline','t3_fontSize','t3_hlColor');
+bindHeadline('t3_headlineInput','t3_headline','t3_fontSize','t3_hlColor','t3_fontFamily');
 
 let lastSubjectRawDataUrl = null;
 document.getElementById('t3_subjectInput').addEventListener('change', e=>{
@@ -583,6 +612,7 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
   const shellH = canvasShell.style.height;
   canvasShell.style.width = aspect.w + 'px';
   canvasShell.style.height = aspect.h + 'px';
+  updateUnits();
 
   await new Promise(r=> setTimeout(r, 60));
 
@@ -603,6 +633,7 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
 
   canvasShell.style.width = shellW;
   canvasShell.style.height = shellH;
+  updateUnits();
   btn.disabled = false;
   btn.textContent = 'Download PNG';
 });
