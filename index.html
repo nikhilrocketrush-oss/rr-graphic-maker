@@ -688,9 +688,19 @@ async function bakeAllForExport(destW, destH){
       console.warn('bake failed for', job.imgId, e);
     }
     if(baked){
-      restoreList.push({img, imgId: job.imgId, originalTransform: img.style.transform});
+      restoreList.push({
+        img,
+        imgId: job.imgId,
+        originalTransform: img.style.transform,
+        originalTop: img.style.top,
+        originalLeft: img.style.left,
+        originalObjectFit: img.style.objectFit
+      });
       img.src = baked;
       img.style.transform = 'none';
+      img.style.top = '0';
+      img.style.left = '0';
+      img.style.objectFit = 'fill';
       try{ await img.decode(); } catch(e){ /* proceed anyway */ }
     }
   }
@@ -701,6 +711,9 @@ async function restoreAfterExport(restoreList){
   for(const r of restoreList){
     r.img.src = photoStore[r.imgId];
     r.img.style.transform = r.originalTransform;
+    r.img.style.top = r.originalTop;
+    r.img.style.left = r.originalLeft;
+    r.img.style.objectFit = r.originalObjectFit;
     try{ await r.img.decode(); } catch(e){ /* proceed anyway */ }
   }
 }
