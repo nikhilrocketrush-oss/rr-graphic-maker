@@ -328,6 +328,8 @@ function bindAdjust(imgId, zId, xId, yId){
   upd();
 }
 
+const photoStore = {};
+
 function bindFileToImg(inputId, imgId, onLoaded){
   document.getElementById(inputId).addEventListener('change', e=>{
     const file = e.target.files[0];
@@ -335,6 +337,7 @@ function bindFileToImg(inputId, imgId, onLoaded){
     const reader = new FileReader();
     reader.onload = ev=>{
       const img = document.getElementById(imgId);
+      photoStore[imgId] = ev.target.result;
       img.src = ev.target.result;
       img.style.display = 'block';
       if(onLoaded) onLoaded(ev.target.result);
@@ -404,6 +407,7 @@ document.getElementById('t3_subjectInput').addEventListener('change', e=>{
     img.src = ev.target.result;
     img.style.display = 'block';
     lastSubjectRawDataUrl = ev.target.result;
+    photoStore['t3_subject'] = ev.target.result;
     document.getElementById('t3_removeBgBtn').disabled = false;
     document.getElementById('t3_autoRemoveBtn').disabled = false;
     document.getElementById('t3_imglyBtn').disabled = false;
@@ -439,6 +443,7 @@ async function autoRemoveBg(){
       const img = document.getElementById('t3_subject');
       img.src = ev.target.result;
       img.style.display = 'block';
+      photoStore['t3_subject'] = ev.target.result;
     };
     reader.readAsDataURL(outBlob);
   } catch(err){
@@ -471,6 +476,7 @@ async function autoRemoveBgImgly(){
       const img = document.getElementById('t3_subject');
       img.src = ev.target.result;
       img.style.display = 'block';
+      photoStore['t3_subject'] = ev.target.result;
     };
     reader.readAsDataURL(resultBlob);
   } catch(err){
@@ -573,6 +579,7 @@ document.getElementById('eraserDone').addEventListener('click', ()=>{
   const subj = document.getElementById('t3_subject');
   subj.src = dataUrl;
   subj.style.display = 'block';
+  photoStore['t3_subject'] = dataUrl;
   document.getElementById('eraserModal').style.display = 'none';
 });
 document.getElementById('eraserClose').addEventListener('click', ()=>{
@@ -613,9 +620,20 @@ function computeCoverRect(natW, natH, destW, destH, zoom, panXVal, panYVal){
   return {x:finalX, y:finalY, w:scaledW, h:scaledH};
 }
 
-function bakeAdjustableImage(imgEl, zoomId, xId, yId, destW, destH){
-  if(!imgEl.src || imgEl.style.display === 'none') return null;
-  const natW = imgEl.naturalWidth, natH = imgEl.naturalHeight;
+function loadIsolatedImage(dataUrl){
+  return new Promise((resolve, reject)=>{
+    const im = new Image();
+    im.onload = ()=> resolve(im);
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+}
+
+async function bakeAdjustableImage(imgId, zoomId, xId, yId, destW, destH){
+  const dataUrl = photoStore[imgId];
+  if(!dataUrl) return null;
+  const source = await loadIsolatedImage(dataUrl);
+  const natW = source.naturalWidth, natH = source.naturalHeight;
   if(!natW || !natH) return null;
   const zoom = parseFloat(document.getElementById(zoomId).value);
   const panX = parseFloat(document.getElementById(xId).value);
@@ -624,13 +642,15 @@ function bakeAdjustableImage(imgEl, zoomId, xId, yId, destW, destH){
   const canvas = document.createElement('canvas');
   canvas.width = destW; canvas.height = destH;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(imgEl, 0,0,natW,natH, rect.x, rect.y, rect.w, rect.h);
+  ctx.drawImage(source, 0,0,natW,natH, rect.x, rect.y, rect.w, rect.h);
   return canvas.toDataURL('image/png');
 }
 
-function bakeSubjectImage(imgEl, wId, yId, destW, destH){
-  if(!imgEl.src || imgEl.style.display === 'none') return null;
-  const natW = imgEl.naturalWidth, natH = imgEl.naturalHeight;
+async function bakeSubjectImage(imgId, wId, yId, destW, destH){
+  const dataUrl = photoStore[imgId];
+  if(!dataUrl) return null;
+  const source = await loadIsolatedImage(dataUrl);
+  const natW = source.naturalWidth, natH = source.naturalHeight;
   if(!natW || !natH) return null;
   const wPct = parseFloat(document.getElementById(wId).value);
   const yPct = parseFloat(document.getElementById(yId).value);
@@ -642,7 +662,7 @@ function bakeSubjectImage(imgEl, wId, yId, destW, destH){
   const canvas = document.createElement('canvas');
   canvas.width = destW; canvas.height = destH;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(imgEl, 0,0,natW,natH, x, y, w, h);
+  ctx.drawImage(source, 0,0,natW,natH, x, y, w, h);
   return canvas.toDataURL('image/png');
 }
 
@@ -656,15 +676,19 @@ async function bakeAllForExport(destW, destH){
   const restoreList = [];
   for(const job of jobs){
     const img = document.getElementById(job.imgId);
-    if(!img || !img.src || img.style.display === 'none') continue;
-    let baked;
-    if(job.kind === 'cover'){
-      baked = bakeAdjustableImage(img, job.zoomId, job.xId, job.yId, destW, destH);
-    } else {
-      baked = bakeSubjectImage(img, job.wId, job.yId, destW, destH);
+    if(!img || img.style.display === 'none' || !photoStore[job.imgId]) continue;
+    let baked = null;
+    try{
+      if(job.kind === 'cover'){
+        baked = await bakeAdjustableImage(job.imgId, job.zoomId, job.xId, job.yId, destW, destH);
+      } else {
+        baked = await bakeSubjectImage(job.imgId, job.wId, job.yId, destW, destH);
+      }
+    } catch(e){
+      console.warn('bake failed for', job.imgId, e);
     }
     if(baked){
-      restoreList.push({img, originalSrc: img.src, originalTransform: img.style.transform});
+      restoreList.push({img, imgId: job.imgId, originalTransform: img.style.transform});
       img.src = baked;
       img.style.transform = 'none';
       try{ await img.decode(); } catch(e){ /* proceed anyway */ }
@@ -673,11 +697,12 @@ async function bakeAllForExport(destW, destH){
   return restoreList;
 }
 
-function restoreAfterExport(restoreList){
-  restoreList.forEach(r=>{
-    r.img.src = r.originalSrc;
+async function restoreAfterExport(restoreList){
+  for(const r of restoreList){
+    r.img.src = photoStore[r.imgId];
     r.img.style.transform = r.originalTransform;
-  });
+    try{ await r.img.decode(); } catch(e){ /* proceed anyway */ }
+  }
 }
 
 document.getElementById('downloadBtn').addEventListener('click', async ()=>{
@@ -710,7 +735,7 @@ document.getElementById('downloadBtn').addEventListener('click', async ()=>{
     alert('Render failed: ' + err.message);
   }
 
-  restoreAfterExport(restoreList);
+  await restoreAfterExport(restoreList);
   canvasShell.style.width = shellW;
   canvasShell.style.height = shellH;
   updateUnits();
