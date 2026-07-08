@@ -42,7 +42,7 @@
   .headline .hl{ background:var(--hlcolor,#D6281F); color:#fff; padding:calc(0.3 * var(--u)) calc(1.4 * var(--u)); border-radius:calc(0.7 * var(--u)); display:inline-block; line-height:1.3; }
 
   /* Template 3: cutout + background */
-  .t3-subject-img{ position:absolute; bottom:0; left:50%; width:var(--subjW,70%); transform:translateX(-50%) translateY(var(--subjY,0%)); z-index:1; display:none; }
+  .t3-subject-img{ position:absolute; top:50%; left:50%; width:100%; height:100%; object-fit:contain; transform: translate(-50%,-50%) scale(var(--z,1)) translate(var(--px,0%), var(--py,0%)); z-index:1; display:none; }
 
   /* Template 4: photo + screenshot only */
   .t4-shot-card{ position:absolute; left:calc(6 * var(--u)); width:var(--t4w,85%); top:var(--t4y,62%); background:#fff; border-radius:calc(1.6 * var(--u)); overflow:hidden; box-shadow:0 calc(1 * var(--u)) calc(3 * var(--u)) rgba(0,0,0,0.35); z-index:2; display:none; }
@@ -187,24 +187,22 @@ knew their name</textarea>
       <div class="field"><label>Subject photo (person)</label><input type="file" id="t3_subjectInput" accept="image/*"></div>
 
       <div class="field">
-        <label>remove.bg API key <span style="text-transform:none;">(free — see note below)</span></label>
-        <input type="text" id="t3_rbgKey" placeholder="paste your key here">
-        <div class="hint">Get a free key at <strong>remove.bg/api</strong> — 50 free cutouts a month, no card needed. The key only lives in this browser tab; it's never saved or sent anywhere except remove.bg.</div>
+        <button class="secondary-btn" id="t3_imglyBtn" disabled>⚡ Auto-remove background (free, unlimited)</button>
+        <div class="hint">Runs an AI model right in your browser — no key, no limit, no data sent anywhere. First run downloads the model (~30MB), then it's cached for instant use after that. Takes 5–15 seconds per image.</div>
       </div>
       <div class="field">
-        <button class="secondary-btn" id="t3_autoRemoveBtn" disabled>⚡ Auto-remove background (remove.bg)</button>
-      </div>
-      <div class="field">
-        <button class="secondary-btn" id="t3_imglyBtn" disabled>🧪 Try free unlimited auto-remove (experimental)</button>
-        <div class="hint">Runs entirely in your browser via an open-source AI model — no key, no monthly cap. It downloads the model on first use and needs browser permissions this embedded preview may not have, so treat it as a "try it" button — if it fails, use remove.bg above or the manual brush below.</div>
+        <label>Or use remove.bg API key <span style="text-transform:none;">(optional fallback)</span></label>
+        <input type="text" id="t3_rbgKey" placeholder="paste key here if you prefer remove.bg">
+        <button class="secondary-btn" id="t3_autoRemoveBtn" disabled style="margin-top:6px;">Remove via remove.bg</button>
       </div>
       <div class="field">
         <button class="secondary-btn" id="t3_removeBgBtn" disabled>Touch up manually (brush)</button>
-        <div class="hint">Use this after auto-remove to clean up edges, or on its own if you'd rather skip both API options entirely.</div>
+        <div class="hint">Use after auto-remove to clean up edges, or skip the auto options entirely.</div>
       </div>
       <div class="row">
-        <div class="field"><label>Subject size</label><input type="range" id="t3_subjW" min="40" max="100" value="70"></div>
-        <div class="field"><label>Subject position</label><input type="range" id="t3_subjY" min="-20" max="20" value="0"></div>
+        <div class="field"><label>Subject zoom</label><input type="range" id="t3_subjZoom" min="1" max="3.5" step="0.05" value="1"></div>
+        <div class="field"><label>Subject pan X</label><input type="range" id="t3_subjPanX" min="-30" max="30" value="0"></div>
+        <div class="field"><label>Subject pan Y</label><input type="range" id="t3_subjPanY" min="-30" max="30" value="0"></div>
       </div>
       <div class="field"><label>Background image</label><input type="file" id="t3_bgInput" accept="image/*"></div>
       <div class="row">
@@ -459,16 +457,20 @@ async function autoRemoveBgImgly(){
   const btn = document.getElementById('t3_imglyBtn');
   const origText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Loading model...';
+  btn.textContent = 'Loading AI model...';
   try{
-    const mod = await import('https://esm.sh/@imgly/background-removal');
+    const mod = await import('https://esm.sh/@imgly/background-removal@1.5.6');
     const removeBackground = mod.default || mod.removeBackground;
-    if(typeof removeBackground !== 'function') throw new Error('library loaded but no removeBackground function found');
+    if(typeof removeBackground !== 'function') throw new Error('Library loaded but removeBackground function not found — this browser may not support it.');
     const sourceBlob = await (await fetch(lastSubjectRawDataUrl)).blob();
+    btn.textContent = 'Processing image...';
     const resultBlob = await removeBackground(sourceBlob, {
       progress: (key, current, total)=>{
-        const pct = total ? Math.round((current/total)*100) : 0;
-        btn.textContent = 'Downloading model ' + pct + '%';
+        if(key === 'fetch' && total){
+          btn.textContent = 'Downloading model ' + Math.round((current/total)*100) + '%';
+        } else if(key === 'compute'){
+          btn.textContent = 'Removing background...';
+        }
       }
     });
     const reader = new FileReader();
@@ -480,7 +482,7 @@ async function autoRemoveBgImgly(){
     };
     reader.readAsDataURL(resultBlob);
   } catch(err){
-    alert('In-browser auto-remove could not load in this preview: ' + err.message + '\n\nThis is a sandbox limitation, not a mistake on your end — use the remove.bg button above, or the manual brush below instead.');
+    alert('Auto-remove failed: ' + err.message + '\n\nTry the remove.bg option below, or use the manual brush.');
   }
   btn.disabled = false;
   btn.textContent = origText;
@@ -503,13 +505,7 @@ document.getElementById('t3_badgeColor').addEventListener('input', e=>{
   document.getElementById('t3_logoBadge').style.background = e.target.value;
 });
 
-['t3_subjW','t3_subjY'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', ()=>{
-    const subj = document.getElementById('t3_subject');
-    subj.style.setProperty('--subjW', document.getElementById('t3_subjW').value+'%');
-    subj.style.setProperty('--subjY', document.getElementById('t3_subjY').value+'%');
-  });
-});
+bindAdjust('t3_subject','t3_subjZoom','t3_subjPanX','t3_subjPanY');
 
 /* Eraser modal logic */
 let eraserCtx = null;
@@ -646,32 +642,12 @@ async function bakeAdjustableImage(imgId, zoomId, xId, yId, destW, destH){
   return canvas.toDataURL('image/png');
 }
 
-async function bakeSubjectImage(imgId, wId, yId, destW, destH){
-  const dataUrl = photoStore[imgId];
-  if(!dataUrl) return null;
-  const source = await loadIsolatedImage(dataUrl);
-  const natW = source.naturalWidth, natH = source.naturalHeight;
-  if(!natW || !natH) return null;
-  const wPct = parseFloat(document.getElementById(wId).value);
-  const yPct = parseFloat(document.getElementById(yId).value);
-  const w = (wPct/100) * destW;
-  const h = w * (natH/natW);
-  const x = (destW - w)/2;
-  const baseY = destH - h;
-  const y = baseY + (yPct/100)*h;
-  const canvas = document.createElement('canvas');
-  canvas.width = destW; canvas.height = destH;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(source, 0,0,natW,natH, x, y, w, h);
-  return canvas.toDataURL('image/png');
-}
-
 async function bakeAllForExport(destW, destH){
   const jobs = [
-    {imgId:'t1_bg', kind:'cover', zoomId:'t1_zoom', xId:'t1_panx', yId:'t1_pany'},
-    {imgId:'t3_bgphoto', kind:'cover', zoomId:'t3_bgZoom', xId:'t3_bgPanX', yId:'t3_bgPanY'},
-    {imgId:'t4_bg', kind:'cover', zoomId:'t4_zoom', xId:'t4_panx', yId:'t4_pany'},
-    {imgId:'t3_subject', kind:'subject', wId:'t3_subjW', yId:'t3_subjY'},
+    {imgId:'t1_bg', zoomId:'t1_zoom', xId:'t1_panx', yId:'t1_pany'},
+    {imgId:'t3_bgphoto', zoomId:'t3_bgZoom', xId:'t3_bgPanX', yId:'t3_bgPanY'},
+    {imgId:'t4_bg', zoomId:'t4_zoom', xId:'t4_panx', yId:'t4_pany'},
+    {imgId:'t3_subject', zoomId:'t3_subjZoom', xId:'t3_subjPanX', yId:'t3_subjPanY'},
   ];
   const restoreList = [];
   for(const job of jobs){
@@ -679,11 +655,7 @@ async function bakeAllForExport(destW, destH){
     if(!img || img.style.display === 'none' || !photoStore[job.imgId]) continue;
     let baked = null;
     try{
-      if(job.kind === 'cover'){
-        baked = await bakeAdjustableImage(job.imgId, job.zoomId, job.xId, job.yId, destW, destH);
-      } else {
-        baked = await bakeSubjectImage(job.imgId, job.wId, job.yId, destW, destH);
-      }
+      baked = await bakeAdjustableImage(job.imgId, job.zoomId, job.xId, job.yId, destW, destH);
     } catch(e){
       console.warn('bake failed for', job.imgId, e);
     }
